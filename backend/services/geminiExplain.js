@@ -8,14 +8,26 @@ async function generate(allData) {
     }
 
     try {
-        const prompt = `You are a cybersecurity expert. Analyze the given URL scan data and provide:
-1. A clear 3–4 sentence explanation of WHY this URL is safe or unsafe
-2. Legal estimation: "Likely Legal", "Likely Illegal", or "Cannot Determine"
+        const prompt = `You are an elite cybersecurity analyst. 
+Analyze this specific URL scan data. Focus on BRAND IMPERSONATION and PHISHING PATTERNS.
 
-Be specific. Mention which indicators triggered. Speak to a non-technical user.
-Do NOT use markdown. Plain text only.
+Current Scanned URL: ${allData.url}
+Score: ${allData.score}/100
+Level: ${allData.level}
 
-Input: ${JSON.stringify(allData)}`;
+Indicators:
+- Google Safe Browsing: ${JSON.stringify(allData.safeBrowsing)}
+- VirusTotal Flags: ${allData.virusTotalMaliciousEngines}
+- URL Features: ${JSON.stringify(allData.urlFeatures)}
+
+Task:
+1. Provide a professional 3–4 sentence report. 
+   - If score is < 60, be very alarmist. 
+   - If brand mismatch is detected (e.g. contains 'paypal' but not on paypal.com), classify it as PHISHING even if the score is somewhat high.
+2. Legal Estimation: "Likely Legal", "Likely Illegal", or "Cannot Determine".
+
+Language: Speak plainly but authoritatively. Mention specific triggers like keywords found or missing HTTPS.
+Do NOT use markdown. Plain text only. No bolding.`;
 
         const response = await axios.post(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -26,13 +38,17 @@ Input: ${JSON.stringify(allData)}`;
             }
         );
 
+        if (!response.data.candidates || response.data.candidates.length === 0) {
+            return fallbackExplanation(allData.score);
+        }
+
         const explanationText = response.data.candidates[0].content.parts[0].text;
         
-        // Parse legal estimation
         let legalEstimation = "Cannot Determine";
-        if (explanationText.toLowerCase().includes("illegal")) {
+        const lowText = explanationText.toLowerCase();
+        if (lowText.includes("illegal") || lowText.includes("phishing") || lowText.includes("scam")) {
             legalEstimation = "Likely Illegal";
-        } else if (explanationText.toLowerCase().includes("legal")) {
+        } else if (lowText.includes("legal") || lowText.includes("official")) {
             legalEstimation = "Likely Legal";
         }
 
@@ -52,11 +68,6 @@ function fallbackExplanation(score) {
     } else if (score >= 60) {
         return {
             explanation: "Low risk detected. While not overtly malicious, maintain caution if you are not familiar with the site.",
-            legalEstimation: "Cannot Determine"
-        };
-    } else if (score >= 40) {
-        return {
-            explanation: "This URL is considered suspicious. Some indicators, like URL format or obscure TLDs, suggest caution is necessary.",
             legalEstimation: "Cannot Determine"
         };
     } else {

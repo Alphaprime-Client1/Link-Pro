@@ -1,34 +1,45 @@
 function calculate(safeBrowsing, virusTotal, urlFeatures) {
     let score = 100;
 
-    // Deductions
+    // 1. Whitelist Protection
+    // If it's a known top-tier domain and SafeBrowsing says it's SAFE, 
+    // ignore small VirusTotal flags (often false positives)
+    if (urlFeatures.isWhitelisted && !safeBrowsing.isMalicious) {
+        if (virusTotal.maliciousCount < 3) {
+            return { score: 100, level: "SAFE", phishingProbability: 0 };
+        }
+    }
+
+    // 2. Direct Threat Deductions
     if (safeBrowsing.isMalicious) {
-        score -= 40;
+        score -= 50; // Increased penalty
     }
 
     if (virusTotal.maliciousCount > 0 && virusTotal.totalEngines > 0) {
-        const vtDeduction = (virusTotal.maliciousCount / virusTotal.totalEngines) * 30;
+        // More aggressive VT penalty
+        const vtDeduction = (virusTotal.maliciousCount / virusTotal.totalEngines) * 60;
         score -= vtDeduction;
     }
 
+    // 3. Heuristic Deductions (THE KEY FOR NEW ILLEGAL SITES)
     if (urlFeatures.hasHTTPS === false) {
-        score -= 10;
+        score -= 15;
     }
 
     if (urlFeatures.hasSuspiciousKeywords) {
-        score -= 5;
-    }
-
-    if (urlFeatures.hasIPAddress) {
         score -= 10;
     }
 
+    if (urlFeatures.hasIPAddress) {
+        score -= 25; // Massive penalty for IP-based URLs
+    }
+
     if (urlFeatures.subdomainCount > 3) {
-        score -= 5;
+        score -= 10;
     }
 
     if (urlFeatures.hasMismatchedDomain) {
-        score -= 15;
+        score -= 30; // Massive penalty for brand impersonation
     }
 
     if (urlFeatures.urlLength > 100) {
@@ -36,9 +47,13 @@ function calculate(safeBrowsing, virusTotal, urlFeatures) {
     }
 
     if (urlFeatures.tldRisk === "high") {
-        score -= 10;
-    } else if (urlFeatures.tldRisk === "medium") {
-        score -= 3;
+        score -= 15;
+    }
+
+    // 4. Force Minimum for obvious phish
+    // If domain mismatch + suspicious keywords are found, it's almost certainly a phish
+    if (urlFeatures.hasMismatchedDomain && urlFeatures.hasSuspiciousKeywords) {
+        score = Math.min(score, 30);
     }
 
     // Clamp score
