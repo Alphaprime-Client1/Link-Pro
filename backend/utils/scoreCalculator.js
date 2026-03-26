@@ -6,7 +6,7 @@ function calculate(safeBrowsing, virusTotal, urlFeatures) {
         score -= 40;
     }
 
-    if (virusTotal.maliciousCount > 0) {
+    if (virusTotal.maliciousCount > 0 && virusTotal.totalEngines > 0) {
         const vtDeduction = (virusTotal.maliciousCount / virusTotal.totalEngines) * 30;
         score -= vtDeduction;
     }
