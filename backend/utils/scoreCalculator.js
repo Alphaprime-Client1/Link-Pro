@@ -1,59 +1,44 @@
-function calculate(safeBrowsing, virusTotal, urlFeatures) {
+function calculate(safeBrowsing, virusTotal, urlFeatures, aiVerdict = "SAFE") {
     let score = 100;
 
-    // 1. Whitelist Protection
-    // If it's a known top-tier domain and SafeBrowsing says it's SAFE, 
-    // ignore small VirusTotal flags (often false positives)
-    if (urlFeatures.isWhitelisted && !safeBrowsing.isMalicious) {
-        if (virusTotal.maliciousCount < 3) {
-            return { score: 100, level: "SAFE", phishingProbability: 0 };
-        }
+    // 1. Whitelist (for official domains)
+    if (urlFeatures.isWhitelisted && !safeBrowsing.isMalicious && virusTotal.maliciousCount < 2) {
+        return { score: 100, level: "SAFE", phishingProbability: 0 };
     }
 
-    // 2. Direct Threat Deductions
+    // 2. Direct Database Hits (Google/Virustotal)
     if (safeBrowsing.isMalicious) {
-        score -= 50; // Increased penalty
+        score -= 50;
     }
 
     if (virusTotal.maliciousCount > 0 && virusTotal.totalEngines > 0) {
-        // More aggressive VT penalty
         const vtDeduction = (virusTotal.maliciousCount / virusTotal.totalEngines) * 60;
         score -= vtDeduction;
     }
 
-    // 3. Heuristic Deductions (THE KEY FOR NEW ILLEGAL SITES)
-    if (urlFeatures.hasHTTPS === false) {
-        score -= 15;
-    }
+    // 3. Heuristic / Pattern Analysis (for new/unseen sites)
+    if (urlFeatures.hasHTTPS === false) score -= 15;
+    if (urlFeatures.urlLength > 100) score -= 5;
+    if (urlFeatures.hasIPAddress) score -= 30;
+    if (urlFeatures.subdomainCount > 3) score -= 10;
+    if (urlFeatures.hasMismatchedDomain) score -= 40;
+    if (urlFeatures.tldRisk === "high") score -= 20;
 
-    if (urlFeatures.hasSuspiciousKeywords) {
+    // Deep keyword penalty (for proxies/piracy)
+    const pirateKeywords = ["proxy", "pirate", "torrent", "mirror", "unlocked", "crack", "mod"];
+    const foundPirate = pirateKeywords.filter(k => urlFeatures.suspiciousKeywordsFound.includes(k));
+    if (foundPirate.length > 0) {
+        score -= 25; // Pirate/Proxy deduction
+    } else if (urlFeatures.hasSuspiciousKeywords) {
         score -= 10;
     }
 
-    if (urlFeatures.hasIPAddress) {
-        score -= 25; // Massive penalty for IP-based URLs
-    }
-
-    if (urlFeatures.subdomainCount > 3) {
-        score -= 10;
-    }
-
-    if (urlFeatures.hasMismatchedDomain) {
-        score -= 30; // Massive penalty for brand impersonation
-    }
-
-    if (urlFeatures.urlLength > 100) {
-        score -= 5;
-    }
-
-    if (urlFeatures.tldRisk === "high") {
-        score -= 15;
-    }
-
-    // 4. Force Minimum for obvious phish
-    // If domain mismatch + suspicious keywords are found, it's almost certainly a phish
-    if (urlFeatures.hasMismatchedDomain && urlFeatures.hasSuspiciousKeywords) {
-        score = Math.min(score, 30);
+    // 4. AI-VERDICT OVERRIDE (Real World intelligence)
+    // If Gemini says DANGER, we force the score down even if DBs are silent
+    if (aiVerdict === "DANGER") {
+        score = Math.min(score, 35); // Force into DANGEROUS/CRITICAL
+    } else if (aiVerdict === "CAUTION") {
+        score = Math.min(score, 65); // Force into SUSPICIOUS/LOW RISK
     }
 
     // Clamp score

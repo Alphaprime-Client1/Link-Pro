@@ -3,31 +3,25 @@ const axios = require('axios');
 async function generate(allData) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey === 'your_key_here') {
-        console.warn('Gemini API key not set.');
         return fallbackExplanation(allData.score);
     }
 
     try {
-        const prompt = `You are an elite cybersecurity analyst. 
-Analyze this specific URL scan data. Focus on BRAND IMPERSONATION and PHISHING PATTERNS.
+        const prompt = `You are an elite cybersecurity agent. Analyze this URL for real-world risk: ${allData.url}.
 
-Current Scanned URL: ${allData.url}
-Score: ${allData.score}/100
-Level: ${allData.level}
+        Data:
+        - Score so far: ${allData.score}/100
+        - SafeBrowsing: ${JSON.stringify(allData.safeBrowsing)}
+        - VirusTotal Flags: ${allData.virusTotalMaliciousEngines}
+        - Features (Heuristics): ${JSON.stringify(allData.urlFeatures)}
 
-Indicators:
-- Google Safe Browsing: ${JSON.stringify(allData.safeBrowsing)}
-- VirusTotal Flags: ${allData.virusTotalMaliciousEngines}
-- URL Features: ${JSON.stringify(allData.urlFeatures)}
-
-Task:
-1. Provide a professional 3–4 sentence report. 
-   - If score is < 60, be very alarmist. 
-   - If brand mismatch is detected (e.g. contains 'paypal' but not on paypal.com), classify it as PHISHING even if the score is somewhat high.
-2. Legal Estimation: "Likely Legal", "Likely Illegal", or "Cannot Determine".
-
-Language: Speak plainly but authoritatively. Mention specific triggers like keywords found or missing HTTPS.
-Do NOT use markdown. Plain text only. No bolding.`;
+        Task:
+        1. Write a 3–4 sentence report. Focus on why it looks safe OR why it's a proxy, pirate, or phishing site.
+        2. Give a machine-readable verdict at the end. Choose ONE: [VERDICT:SAFE], [VERDICT:CAUTION], [VERDICT:DANGER].
+        
+        Example: "This site is a proxy for copyright material. VERDICT:DANGER"
+        
+        Be authoritative. Do NOT mention being an AI. No markdown.`;
 
         const response = await axios.post(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -38,41 +32,35 @@ Do NOT use markdown. Plain text only. No bolding.`;
             }
         );
 
-        if (!response.data.candidates || response.data.candidates.length === 0) {
-            return fallbackExplanation(allData.score);
-        }
-
         const explanationText = response.data.candidates[0].content.parts[0].text;
         
-        let legalEstimation = "Cannot Determine";
-        const lowText = explanationText.toLowerCase();
-        if (lowText.includes("illegal") || lowText.includes("phishing") || lowText.includes("scam")) {
-            legalEstimation = "Likely Illegal";
-        } else if (lowText.includes("legal") || lowText.includes("official")) {
-            legalEstimation = "Likely Legal";
-        }
+        // Extract verdict
+        let verdict = "SAFE";
+        if (explanationText.includes("VERDICT:DANGER")) verdict = "DANGER";
+        else if (explanationText.includes("VERDICT:CAUTION")) verdict = "CAUTION";
+        
+        // Clean text (remove verdict tag for UI)
+        const uiText = explanationText.replace(/\[VERDICT:.*\]/g, "");
 
-        return { explanation: explanationText, legalEstimation: legalEstimation };
+        let legalEstimation = "Cannot Determine";
+        if (verdict === "DANGER") legalEstimation = "Likely Illegal";
+        else if (verdict === "SAFE") legalEstimation = "Likely Legal";
+
+        return { explanation: uiText, legalEstimation, verdict };
     } catch (error) {
-        console.error('Gemini API error:', error.message);
-        return fallbackExplanation(allData.score);
+        return { ...fallbackExplanation(allData.score), verdict: "UNKNOWN" };
     }
 }
 
 function fallbackExplanation(score) {
     if (score >= 80) {
         return {
-            explanation: "This URL appears safe based on preliminary scanning. No major threats were detected in the primary threat intelligence databases.",
+            explanation: "URL appears safe based on preliminary pattern matching.",
             legalEstimation: "Likely Legal"
-        };
-    } else if (score >= 60) {
-        return {
-            explanation: "Low risk detected. While not overtly malicious, maintain caution if you are not familiar with the site.",
-            legalEstimation: "Cannot Determine"
         };
     } else {
         return {
-            explanation: "DANGER. This URL has strong indicators of being a phishing or malware threat. Avoid visiting this page to protect your browsing data.",
+            explanation: "CAUTION: This URL has suspicious characteristics (length, host patterns, or TLD risk).",
             legalEstimation: "Likely Illegal"
         };
     }
