@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShieldScan | AI-Powered URL Threat Intelligence</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">🛡️ ShieldScan</div>
+            <p class="tagline">AI-Powered URL Threat Intelligence Platform</p>
+        </header>
+
+        <section class="input-section">
+            <input type="text" id="url-input" placeholder="Paste any URL to scan..." autocomplete="off">
+            <button id="scan-btn">SCAN URL</button>
+        </section>
+
+        <section id="loading-state" class="hidden">
+            <div class="pulse-ring"></div>
+            <p id="loading-text">Querying threat databases...</p>
+        </section>
+
+        <section id="result-card" class="hidden">
+            <div class="result-header">
+                <span id="level-badge" class="badge">SUSPICIOUS</span>
+                <span id="score-text">Score: 0/100</span>
+            </div>
+            <div class="progress-container">
+                <div id="score-bar" class="progress-bar"></div>
+            </div>
+
+            <div class="result-body">
+                <div class="indicator" id="ind-safe-browsing">
+                    <span class="icon">⚪</span> Google Safe Browsing: <span class="status">NOT SCANNED</span>
+                </div>
+                <div class="indicator" id="ind-virus-total">
+                    <span class="icon">⚪</span> VirusTotal: <span class="status">0/0 engines flagged</span>
+                </div>
+                <div class="indicator" id="ind-https">
+                    <span class="icon">⚪</span> HTTPS: <span class="status">UNCHECKED</span>
+                </div>
+                <div class="indicator" id="ind-keywords">
+                    <span class="icon">⚪</span> Suspicious Keywords: <span class="status">NONE</span>
+                </div>
+                <div class="indicator" id="ind-mismatch">
+                    <span class="icon">⚪</span> Domain Mismatch: <span class="status">NONE</span>
+                </div>
+                <div class="indicator" id="ind-tld">
+                    <span class="icon">⚪</span> TLD Risk: <span class="status">LOW</span>
+                </div>
+            </div>
+
+            <div class="legal-box">
+                ⚖️ Legal Estimation: <span id="legal-estimation">NOT DETERMINED</span>
+            </div>
+
+            <div class="ai-box">
+                <h3>🤖 AI Explanation</h3>
+                <p id="ai-explanation">Scanning...</p>
+            </div>
+        </section>
+
+        <section class="history-section">
+            <h3>Recent Scans</h3>
+            <div id="history-list">
+                <!-- History items will be added here -->
+            </div>
+        </section>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
