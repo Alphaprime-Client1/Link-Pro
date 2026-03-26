@@ -9,11 +9,13 @@ function extract(urlStr) {
         "reset", "urgent", "limited", "suspend", "blocked", "claim", "offer",
         "proxy", "pirate", "torrent", "mirror", "kickass", "magnet", "seed", 
         "leech", "crack", "keygen", "serial", "patch", "unlocked", "mod", "apk",
-        "p2p", "vbulletin", "bypass", "anonymous", "dark", "deep"
+        "p2p", "vbulletin", "bypass", "anonymous", "dark", "deep", "gift", 
+        "bonus", "vouchers", "money", "earn", "cash", "crypto", "bitcoin"
     ];
 
+    const urlLower = urlStr.toLowerCase();
     const suspiciousKeywordsFound = suspiciousKeywords.filter(keyword =>
-        urlStr.toLowerCase().includes(keyword.toLowerCase())
+        urlLower.includes(keyword)
     );
 
     const hasSuspiciousKeywords = suspiciousKeywordsFound.length > 0;
@@ -24,6 +26,7 @@ function extract(urlStr) {
     let hasMismatchedDomain = false;
     let tldRisk = "low";
     let isWhitelisted = false;
+    let domainKeywordsFound = [];
 
     const whitelist = [
         "google.com", "youtube.com", "facebook.com", "microsoft.com", 
@@ -43,19 +46,20 @@ function extract(urlStr) {
         hasIPAddress = ipRegex.test(hostName);
 
         subdomainCount = (hostName.split('.').length - 1);
+        domainKeywordsFound = suspiciousKeywords.filter(k => hostName.includes(k));
 
-        const brandNames = ["paypal", "google", "facebook", "amazon", "apple", "microsoft", "netflix", "instagram", "chase"];
+        const brandNames = ["paypal", "google", "facebook", "amazon", "apple", "microsoft", "netflix", "instagram", "chase", "binance", "coinbase", "binance"];
         for(let brand of brandNames) {
             const hostParts = hostName.split('.');
             const mainDomain = hostParts.length >= 2 ? hostParts[hostParts.length - 2] : hostName;
             
-            if (urlStr.toLowerCase().includes(brand) && !mainDomain.includes(brand)) {
+            if (urlLower.includes(brand) && mainDomain !== brand && !mainDomain.includes(brand)) {
                 hasMismatchedDomain = true;
                 break;
             }
         }
 
-        const highRiskTLDs = [".xyz", ".top", ".click", ".gq", ".tk", ".ml", ".cf", ".ga", ".loan", ".zip", ".mov", ".win", ".bid", ".stream", ".date"];
+        const highRiskTLDs = [".xyz", ".top", ".click", ".gq", ".tk", ".ml", ".cf", ".ga", ".loan", ".zip", ".mov", ".win", ".bid", ".stream", ".date", ".work"];
         const tldMatch = hostName.match(/\.[a-z0-9]+$/);
         if (tldMatch) {
             const tld = tldMatch[0];
@@ -69,6 +73,7 @@ function extract(urlStr) {
         hasHTTPS,
         hasSuspiciousKeywords,
         suspiciousKeywordsFound,
+        domainKeywordsFound,
         urlLength,
         hasIPAddress,
         subdomainCount,

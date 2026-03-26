@@ -1,7 +1,7 @@
 function calculate(safeBrowsing, virusTotal, urlFeatures, aiVerdict = "SAFE") {
     let score = 100;
 
-    // 1. Whitelist (for official domains)
+    // 1. Whitelist Protection
     if (urlFeatures.isWhitelisted && !safeBrowsing.isMalicious && virusTotal.maliciousCount < 2) {
         return { score: 100, level: "SAFE", phishingProbability: 0 };
     }
@@ -16,35 +16,35 @@ function calculate(safeBrowsing, virusTotal, urlFeatures, aiVerdict = "SAFE") {
         score -= vtDeduction;
     }
 
-    // 3. Heuristic / Pattern Analysis (for new/unseen sites)
-    if (urlFeatures.hasHTTPS === false) score -= 15;
-    if (urlFeatures.urlLength > 100) score -= 5;
-    if (urlFeatures.hasIPAddress) score -= 30;
-    if (urlFeatures.subdomainCount > 3) score -= 10;
-    if (urlFeatures.hasMismatchedDomain) score -= 40;
-    if (urlFeatures.tldRisk === "high") score -= 20;
+    // 3. Independent Heuristic Analysis (The Key for New Illegal Sites)
+    if (urlFeatures.hasHTTPS === false) score -= 20; // Increased penalty
+    if (urlFeatures.urlLength > 120) score -= 10;
+    if (urlFeatures.hasIPAddress) score -= 40;
+    if (urlFeatures.subdomainCount > 3) score -= 15;
+    if (urlFeatures.hasMismatchedDomain) score -= 45; // Brand impersonation is critical
+    if (urlFeatures.tldRisk === "high") score -= 25;
 
-    // Deep keyword penalty (for proxies/piracy)
-    const pirateKeywords = ["proxy", "pirate", "torrent", "mirror", "unlocked", "crack", "mod"];
-    const foundPirate = pirateKeywords.filter(k => urlFeatures.suspiciousKeywordsFound.includes(k));
-    if (foundPirate.length > 0) {
-        score -= 25; // Pirate/Proxy deduction
+    // Domain name keyword check (e.g. "pirate" or "proxy" in host)
+    const criticalKeywords = ["proxy", "pirate", "torrent", "mirror", "crack", "unlocked", "leech", "magnet"];
+    const foundCritical = criticalKeywords.filter(k => urlFeatures.domainKeywordsFound.includes(k));
+    
+    if (foundCritical.length > 0) {
+        score -= 40; // Massive deduction for pirate keywords in domain
     } else if (urlFeatures.hasSuspiciousKeywords) {
-        score -= 10;
+        score -= 15;
     }
 
-    // 4. AI-VERDICT OVERRIDE (Real World intelligence)
-    // If Gemini says DANGER, we force the score down even if DBs are silent
+    // 4. AI-VERDICT OVERRIDE (Real World Intelligence)
     if (aiVerdict === "DANGER") {
-        score = Math.min(score, 35); // Force into DANGEROUS/CRITICAL
+        score = Math.min(score, 30); // Force into DANGEROUS/CRITICAL level
     } else if (aiVerdict === "CAUTION") {
-        score = Math.min(score, 65); // Force into SUSPICIOUS/LOW RISK
+        score = Math.min(score, 60); // Force into SUSPICIOUS/LOW RISK
     }
 
     // Clamp score
     score = Math.max(0, Math.min(100, Math.round(score)));
 
-    // Level mapping
+    // Final Mapping
     let level = "SAFE";
     if (score < 20) level = "CRITICAL";
     else if (score < 40) level = "DANGEROUS";
